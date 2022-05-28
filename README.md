@@ -30,13 +30,13 @@ graph TD
 ```
 | model | method/arch  | custom_metric |
 | :---: | :-: | :-: |
-| Cascade + ResNet-50 | RFP  | 100  |
-| Cascade + ResNet-50 | SAC  | 100  |
-| Cascade R-CNN | HRNet  | 100  |
-| FCOS | HRNet  | 100  |
-| Faster R-CNN | FPN  | 100  |
-| Yolo | V5  | 100  |
-| Yolo | X  | 100  |
+| Cascade + ResNet-50 | RFP  |
+| Cascade + ResNet-50 | SAC  |
+| Cascade R-CNN | HRNet  |
+| FCOS | HRNet  |
+| Faster R-CNN | FPN  |
+| Yolo | V5  |
+| Yolo | X  |
 
 После анализа результатов мы приняли выбрали 2 модели, которые показали по нашей метрике лучшие результаты:
 - CASCADE_RCNN_HRNET
