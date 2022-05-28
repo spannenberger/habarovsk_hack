@@ -6,99 +6,109 @@ import pandas as pd
 from scipy.spatial.distance import cosine
 import torch
 import random
-import os
+from sahi.model import MmdetDetectionModel
+
+# from source.infrastructure.detection.yolov5 import YoloV5Detector
+# from source.infrastructure.detection.config import AppConfig, ObjectDetectorConfig
+
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-def load_detection_model():
-    """Функция для загрузки обученной модели детекции"""
-    config = os.getenv("MODEL_CONFIG_PATH")
-    model_path = os.getenv("MODEL_WEIGHT_PATH")
-    print(config)
-    cfg = Config.fromfile(config)
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-    checkpoint_path = model_path
-    detector_model = init_detector(cfg, checkpoint=checkpoint_path, device='cpu')
+def load_mmdet_model(detect_model_path, threshold: float = 0.4):
+    """Функция для загрузки обученной модели детекции"""
+    # import pdb; pdb.set_trace()
+    detector_model = MmdetDetectionModel(
+    model_path=f"{detect_model_path}/latest.pth",
+    config_path=f'{detect_model_path}/custom_config.py',
+    confidence_threshold=threshold,
+    device=device)
+
     return detector_model
 
 
-# def load_metric_model():
-#     """Загрузки обученной модели metric learning 
-
-#     Модель metric learning используется для определения принцессы
-
-#     Return:
-#         metric_model - выгруженная metric learning модель
-#         feature_extractor - выгруженный экстрактор фичей с изображения
-#         device - девайс на который мы ставим модель
-#         base: np.array - массив с классами и их усредненными эмбеддингами
-#     """
-
-#     extractor = 'google/vit-base-patch16-384' # фичи экстрактор
-#     model = './trained_metric_transformer/' # путь до обученной модели
-#     device = 'cuda:0' if torch.cuda.is_available() else 'cpu' # пока пусть так будет, нужно сделать не так явно
-
-#     df = pd.read_csv("./full_base_file.csv") # считываем csv со средними эмбеддингами для каждого класса
-#     base = df.values.T
-
-#     feature_extractor = ViTFeatureExtractor.from_pretrained(extractor)
-#     metric_model = ViTModel.from_pretrained(model)
-#     metric_model.to(device)
-
-#     return metric_model, feature_extractor, device, base
+# def load_yolo_model():
+#     """Функция для загрузки обученной модели детекции"""
+#     app_config = AppConfig()
+#     detector_config = app_config.object_detector
+#     object_detector = YoloV5Detector(detector_config)
+#     return object_detector
 
 
-# def get_metric_prediction(
-#     model, 
-#     feature_extractor, 
-#     device, 
-#     base, 
-#     img):
-#     """ Функция инференса metric learning
+def load_metric_model(model_path, csv_path):
+    """Загрузки обученной модели metric learning 
 
-#     Прогоняем фотографию через модель metric learning для получения его эмбеддинга
-#     Смотрим косинусное расстояние до эталонного эмбеддинга запредикченного класса
-#     (Далле по найденному threshold мы будем отсекать фотографии где нет принцессы)
+    Модель metric learning используется для определения принцессы
 
-#     Args:
-#         model - выгруженная metric learning модель
-#         feature_extractor - экстрактор фичей с изображения
-#         device - девайс на который мы ставим модель
-#         base: np.array - массив с классами и их усредненными эмбеддингами
-#         img: np.array - полученное изображение с запроса
+    Return:
+        metric_model - выгруженная metric learning модель
+        feature_extractor - выгруженный экстрактор фичей с изображения
+        device - девайс на который мы ставим модель
+        base: np.array - массив с классами и их усредненными эмбеддингами
+    """
 
-#     Return:
-#         correct_class: int - близжайший класс, к которому мы отнесли фотографию
-#     """
+    extractor = 'google/vit-base-patch16-384' # фичи экстрактор
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu' # пока пусть так будет, нужно сделать не так явно
+
+    df = pd.read_csv(csv_path) # считываем csv со средними эмбеддингами для каждого класса
+    base = df.values.T
+
+    feature_extractor = ViTFeatureExtractor.from_pretrained(extractor)
+    metric_model = ViTModel.from_pretrained(model_path)
+    metric_model.to(device)
+
+    return metric_model, feature_extractor, device, base
+
+
+def get_metric_prediction(
+    model, 
+    feature_extractor, 
+    device, 
+    base, 
+    img):
+    """ Функция инференса metric learning
+
+    Прогоняем фотографию через модель metric learning для получения его эмбеддинга
+    Смотрим косинусное расстояние до эталонного эмбеддинга запредикченного класса
+    (Далле по найденному threshold мы будем отсекать фотографии где нет принцессы)
+
+    Args:
+        model - выгруженная metric learning модель
+        feature_extractor - экстрактор фичей с изображения
+        device - девайс на который мы ставим модель
+        base: np.array - массив с классами и их усредненными эмбеддингами
+        img: np.array - полученное изображение с запроса
+
+    Return:
+        correct_class: int - близжайший класс, к которому мы отнесли фотографию
+    """
     
-#     img = feature_extractor(img, return_tensors="pt")
-#     img.to(device)
+    img = feature_extractor(img, return_tensors="pt")
+    img.to(device)
 
-#     # инференс модели и получение предикта
-#     model.eval()
-#     with torch.no_grad():
-#         prediction = model(**img).pooler_output
-#         prediction = prediction[0].cpu().detach().numpy()
+    # инференс модели и получение предикта
+    model.eval()
+    with torch.no_grad():
+        prediction = model(**img).pooler_output
+        prediction = prediction[0].cpu().detach().numpy()
 
-#     dist = []
-#     for emb in base:
-#         dist.append(cosine(emb, prediction)) # считаем косинусное расстояние
+    dist = []
+    for emb in base:
+        dist.append(cosine(emb, prediction)) # считаем косинусное расстояние
 
-#     class_idx = np.argmin(np.array(dist)) # берем индекс наименьшего расстояния - близжайший класс
+    class_idx = np.argmin(np.array(dist)) # берем индекс наименьшего расстояния - близжайший класс
 
-#     print(dist[class_idx])
+    # print(dist[class_idx])
 
-#     # если у нас расстояние наименьшего класса проходит по параметру,
-#     # то мы выбираем его в качестве ответа
-#     if dist[class_idx] < 0.42: # подобранный threshold для повышения качества модели
-#         correct_class = class_idx
-#     # если же не проходит по параметру, то мы относим изображение к
-#     # классу 'another animal'
-#     else:
-#         correct_class = 3
+    if dist[class_idx] < 0.42:
+        correct_class = class_idx
 
-#     return correct_class
+    else:
+        correct_class = 3
+
+    return correct_class
 
 
 def get_detection_prediction(model, img):

@@ -3,7 +3,6 @@ from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters
 from telegram import InputMediaPhoto
 from telegram.ext import Updater
-# from credentials import bot_token
 import cv2
 import requests
 import os 
@@ -14,7 +13,7 @@ from utils import process_image, transform_pil_image_to_bytes, get_video, get_im
 
 
 TOKEN = os.getenv('BOT_TOKEN')
-URL = 'http://localhost:5008/api/test'
+URL = 'http://10.10.66.129:5010/api/test'
 
 content_type = 'image/jpeg'
 headers = {'content-type': content_type}
@@ -35,19 +34,20 @@ def bot_image_processing(bot, update):
     """
     print("Получение изображения")
     image_bytes, _ = get_image_bytes(bot, update)
-
     image_array = process_image(image_bytes)
     _, img_encoded = cv2.imencode('.jpg', image_array)
     data = img_encoded.tostring()
+
     print("Изображение получено, отправляю запрос на распознавание")
-    response = requests.post(URL, data=data, headers=headers) # отправляем запрос на бэк
-    metadata = response.json()['image'] # обрабатываем полученный ответ с результатами работы модели
+    response = requests.post(URL, data=data, headers=headers)
+    metadata = response.json()['image']
+
     print("Отрисовка контуров")
     walrus_counter = draw_contours(image_array, metadata)
     image = transform_pil_image_to_bytes(image_array)
 
     print('Изображение обработано')
-    text = f"На фото мы смогли распознать {walrus_counter} ненецкого(их) льва(ов)!!😎😎😎"
+    text = f"На фото мы смогли распознать {walrus_counter} ненецкого(их) льва(ов)"
     bot.send_photo(chat_id=update.message.chat_id, photo=image)
     bot.send_message(chat_id=update.message.chat_id, text=text,
                     reply_to_message_id=update.message.message_id,
@@ -61,10 +61,8 @@ start_handler = CommandHandler(['start', 'help'], start)
 cut_video_handler = CommandHandler(['cut_video'], cut_video)
 
 process_image_handler = MessageHandler(Filters.photo | Filters.document, bot_image_processing)
-# process_video_handler =  MessageHandler(Filters.video, bot_video_preprocessing)
 
 dispatcher.add_handler(start_handler)
 dispatcher.add_handler(cut_video_handler)
 dispatcher.add_handler(process_image_handler)
-# dispatcher.add_handler(process_video_handler)
 updater.start_polling()

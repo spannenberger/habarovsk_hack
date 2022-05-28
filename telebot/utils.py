@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import io
 from PIL import Image
+from tqdm import tqdm
 
 def process_image(image_bytes):
     """Перевод изображения из байтов в необходимый для вывода формат
@@ -86,25 +87,21 @@ def draw_contours(image_array, metadata):
         counter_dict: dict - словарь с кол-вом определенных животных
     """
     
-    for bbox in metadata["bbox"]:
+    for bbox in tqdm(metadata["bbox"]):
         class_name = bbox['class_name']
 
-        threshold = bbox['threshold']
+        confidence = bbox['confidence']
 
-        topLeftCorner = (bbox['bbox']['x1'], bbox['bbox']['y1'])
-        botRightCorner = (bbox['bbox']['x2'], bbox['bbox']['y2'])
+        topLeftCorner = (bbox['bbox']['x'], bbox['bbox']['y'])
+        botRightCorner = (bbox['bbox']['x']+bbox['bbox']['width'], bbox['bbox']['y']+bbox['bbox']['height'])
 
-        cv2.rectangle(image_array,\
-                         topLeftCorner,\
-                         botRightCorner,\
-                         (255, 0, 0), 1)
+        center_coords = int((botRightCorner[0] + topLeftCorner[0]) / 2), int((botRightCorner[1] + topLeftCorner[1]) / 2)
 
-        cv2.putText(image_array, f'{class_name} - {threshold}',
-                        topLeftCorner,
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (255, 0, 0),
-                        2,
-                        2)
+        cv2.putText(image_array, '*', 
+                            center_coords,
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.3, (0, 0, 0),
+                            1,
+                            1)
 
     return len(metadata["bbox"])
