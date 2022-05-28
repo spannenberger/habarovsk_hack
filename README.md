@@ -28,7 +28,7 @@ graph TD
 ```
 Здесь будет формула для подсчета метрики
 ```
-| model | method/arch  | custom_metric |
+| model | method/arch  |
 | :---: | :-: | :-: |
 | Cascade + ResNet-50 | RFP  |
 | Cascade + ResNet-50 | SAC  |
