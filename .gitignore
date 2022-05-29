@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+source/
+submission/
+test-public-images/
+mmdetection/
+test_data_hack/
