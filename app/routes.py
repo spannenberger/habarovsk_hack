@@ -77,7 +77,7 @@ def test():
 
         metric_result = get_metric_prediction(metric_model, feature_extractor, device, base, cutted_img)
 
-        classes_dict = {0: 'leopard', 1: 'princess', 2: 'tigers', 3: 'other animal'}
+        classes_dict = {0: 'small', 1: 'big'}
 
         bbox.update({'class_name': classes_dict[metric_result]})
 
