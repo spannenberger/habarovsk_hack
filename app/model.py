@@ -98,6 +98,6 @@ def get_metric_prediction(
         correct_class = class_idx
 
     else:
-        correct_class = 3
+        correct_class = 1
 
     return correct_class
