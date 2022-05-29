@@ -1,8 +1,8 @@
+from PIL import Image
+from tqdm import tqdm
 import numpy as np
 import cv2
 import io
-from PIL import Image
-from tqdm import tqdm
 
 def process_image(image_bytes):
     """Перевод изображения из байтов в необходимый для вывода формат
@@ -22,8 +22,7 @@ def process_image(image_bytes):
 
 def transform_pil_image_to_bytes(image):
     """Перевод из array в изображение
-
-    @TODO DOCS
+    
     Args:
         image: np.array - представление фотографии
     Return:
@@ -58,25 +57,6 @@ def get_image_bytes(bot, update):
     return image, file_id
 
 
-def get_video(bot, update):
-    """ Выгрузка полученного видеофрагмента
-
-    Args:
-        bot: bot - тело нашего бота
-        update: command - параметр для обновления данных в боте
-    Return:
-        file_path: str - путь до полученного видеофрагмента
-    """
-
-    if not update.message.video:
-        file_id = update.message.document['file_id']
-    else:
-        file_id = update.message.video['file_id']
-    file = bot.getFile(file_id)
-    file_path = file.file_path
-    return file_path
-
-
 def draw_contours(image_array, metadata):
     """ Функция отрисовки контура и подсчета кол-во особей
     Обрабатываем результат работы моделей, извлекая полученный класс животного
@@ -92,15 +72,15 @@ def draw_contours(image_array, metadata):
 
         confidence = bbox['confidence']
 
-        topLeftCorner = (bbox['bbox']['x'], bbox['bbox']['y'])
-        botRightCorner = (bbox['bbox']['x']+bbox['bbox']['width'], bbox['bbox']['y']+bbox['bbox']['height'])
+        topLeftCorner = (bbox['bbox']['x1'], bbox['bbox']['y1'])
+        botRightCorner = (bbox['bbox']['x2'], bbox['bbox']['y2'])
 
         center_coords = int((botRightCorner[0] + topLeftCorner[0]) / 2), int((botRightCorner[1] + topLeftCorner[1]) / 2)
 
         cv2.putText(image_array, '*', 
                             center_coords,
                             cv2.FONT_HERSHEY_SIMPLEX, 
-                            0.3, (0, 0, 0),
+                            0.3, (255, 0, 0),
                             1,
                             1)
 

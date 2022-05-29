@@ -1,43 +1,37 @@
-from mmcv import Config
-from mmdet.apis import init_detector, inference_detector
 from transformers import ViTFeatureExtractor, ViTModel
-import numpy as np
-import pandas as pd
+from sahi.model import MmdetDetectionModel
 from scipy.spatial.distance import cosine
+import pandas as pd
+import numpy as np
 import torch
 import random
-from sahi.model import MmdetDetectionModel
 
-# from source.infrastructure.detection.yolov5 import YoloV5Detector
-# from source.infrastructure.detection.config import AppConfig, ObjectDetectorConfig
 
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-
 def load_mmdet_model(detect_model_path, threshold: float = 0.4):
-    """Функция для загрузки обученной модели детекции"""
-    # import pdb; pdb.set_trace()
+    """Функция для загрузки обученной модели детекции сразу в виде модели 
+    использующая sahi
+    Args:
+        detect_model_path: str - путь до модели детекции
+        threshold: float - пороговое значение для отсечения неуверенных ответов модели 
+    Return:
+        detector_model: MmdetDetectionModel - класс нашей модели детекции
+    """
+
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     detector_model = MmdetDetectionModel(
     model_path=f"{detect_model_path}/latest.pth",
-    config_path=f'{detect_model_path}/custom_config.py',
+    config_path=f'{detect_model_path}/config.py',
     confidence_threshold=threshold,
     device=device)
 
     return detector_model
 
 
-# def load_yolo_model():
-#     """Функция для загрузки обученной модели детекции"""
-#     app_config = AppConfig()
-#     detector_config = app_config.object_detector
-#     object_detector = YoloV5Detector(detector_config)
-#     return object_detector
-
-
-def load_metric_model(model_path, csv_path):
+def load_metric_model(model_path: str, csv_path: str):
     """Загрузки обученной модели metric learning 
 
     Модель metric learning используется для определения принцессы
@@ -100,8 +94,6 @@ def get_metric_prediction(
 
     class_idx = np.argmin(np.array(dist)) # берем индекс наименьшего расстояния - близжайший класс
 
-    # print(dist[class_idx])
-
     if dist[class_idx] < 0.42:
         correct_class = class_idx
 
@@ -109,18 +101,3 @@ def get_metric_prediction(
         correct_class = 3
 
     return correct_class
-
-
-def get_detection_prediction(model, img):
-    """"Функция для инференса детектора
-    
-    Args:
-        model - выгруженная модель детектора
-        img: np.array - полученное изображение с запроса 
-    Return:
-        result - предикт модели (состоит из bbox с координатами и вероятностью)
-    """
-
-    result = inference_detector(model, img)
-
-    return result

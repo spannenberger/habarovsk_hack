@@ -1,16 +1,19 @@
-import io
+from sahi.model import MmdetDetectionModel
+from mmdet.apis import inference_detector
 from PIL import Image
-from mmdet.apis import init_detector, inference_detector
-from mmcv import Config
+import io
 
-def load_detection_model(config: str, model_path: str):
+def load_mmdet_model(detect_model_path, threshold: float = 0.4):
     """Функция для загрузки обученной модели детекции"""
+    # import pdb; pdb.set_trace()
+    detector_model = MmdetDetectionModel(
+    model_path=f"{detect_model_path}/latest.pth",
+    config_path=f'{detect_model_path}/config.py',
+    confidence_threshold=threshold,
+    device='cpu')
 
-    cfg = Config.fromfile(config)
-
-    checkpoint_path = model_path
-    detector_model = init_detector(cfg, checkpoint=checkpoint_path, device='cpu')
     return detector_model
+
 
 def get_detection_prediction(model, img):
     """"Функция для инференса детектора

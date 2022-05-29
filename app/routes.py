@@ -1,40 +1,29 @@
 from .model import load_mmdet_model, load_metric_model, get_metric_prediction
-from flask import request, render_template
-import numpy as np
-import cv2
-from app import app
-import torch
-import random
+from .utils import image_augmentations, get_image_from_tg_bot
 from sahi.predict import get_sliced_prediction
-from PIL import Image, ImageEnhance
-import os
+from flask import request, render_template
 from tqdm import tqdm
+from app import app
+import numpy as np
+import random
+import torch
+import os
 
 
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-metric_model_path = os.getenv('METRIC_MODEL')
-embs = os.getenv('EMBEDDINGS')
+metric_model_path = os.getenv('METRIC_MODEL', '')
+embs = os.getenv('EMBEDDINGS', '')
 
-detect_model_path = os.getenv('DETECTION_MODEL_RCNN')
-
-
-def get_image_from_tg_bot(request_from_bot):
-    """Функция для обрабтки фотографии с тг запроса
-    Args:
-        request_from_bot: bytearray - байтовое представление изображения
-    Return:
-        img: np.array - numpy массив-представление изображения
-    """
-
-    nparr = np.fromstring(request_from_bot.data, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    return img
+detect_model_rcnn_path = os.getenv('DETECTION_MODEL_RCNN', '')
+detect_model_rcnn_hr_path = os.getenv('DETECTION_MODEL_RCNN_HR', '')
 
 
-mmdet_model = load_mmdet_model(detect_model_path, threshold=0.83) # выгрузка детектора
+# mmdet_rcnn_model = load_mmdet_model(detect_model_rcnn_path, threshold=0.92) # выгрузка детектора
+mmdet_rcnn_hr_model = load_mmdet_model(detect_model_rcnn_hr_path, threshold=0.85) # выгрузка детектора
+
 metric_model, feature_extractor, device, base = load_metric_model(metric_model_path, embs) # выгрузка metric learning модели
 
 
@@ -51,39 +40,42 @@ def index():
 @app.route('/api/test', methods=['POST'])
 def test():
     print("backend start")
+
     img = get_image_from_tg_bot(request)
-    print(img.shape)
-    enhancer = ImageEnhance.Contrast(Image.fromarray(img))
-    img = np.array(enhancer.enhance(1.5))
-    print(img.shape)
 
+    img = image_augmentations(img)
 
-    detection_result = get_sliced_prediction(img, mmdet_model, slice_height = 1024, slice_width = 1024).to_coco_predictions()
-
-
-    # if len(detection_result) > 200:
-    #     detection_result = get_sliced_prediction(img, detection_model, slice_height = 512, slice_width = 512).to_coco_predictions()
+    # detection inference using SAHI
+    # detection_result_rcnn = get_sliced_prediction(img, mmdet_rcnn_model, slice_height = 1024, slice_width = 1024).object_prediction_list
+    detection_result_rcnn_hr = get_sliced_prediction(img, mmdet_rcnn_hr_model, slice_height = 1024, slice_width = 1024).object_prediction_list
 
     print('detecting is done')
 
     all_bboxes = []
-    for i, recognition in enumerate(detection_result):
 
-        if len(recognition['bbox']) == 0:
+    for i, response in tqdm(enumerate(detection_result_rcnn_hr)):
+
+        confidence = response.score.value
+
+        if len(response.bbox.to_voc_bbox()) == 0:
             continue
 
-        all_bboxes.append({'bbox_id':i, 
-                            'bbox':{'x':int(recognition['bbox'][0]), 'y':int(recognition['bbox'][1]),\
-                                    'width':int(recognition['bbox'][2]), 'height':int(recognition['bbox'][3])},\
-                            'confidence':int(recognition['score']*100),
+        response = response.bbox.to_voc_bbox()
+
+        all_bboxes.append({'bbox_id': i,
+                            'bbox': {
+                                'x1': response[0], 
+                                'y1': response[1],
+                                'x2': response[2], 
+                                'y2': response[3]},
+                            'confidence': int(confidence * 100),
                             'class_name': 'walrus'})
     
     for bbox in tqdm(all_bboxes):
 
-        topLeftCorner = (bbox['bbox']['x'], bbox['bbox']['y'])
-        botRightCorner = (bbox['bbox']['x']+bbox['bbox']['width'], bbox['bbox']['y']+bbox['bbox']['height'])
+        topLeftCorner = (bbox['bbox']['x1'], bbox['bbox']['y1'])
+        botRightCorner = (bbox['bbox']['x2'], bbox['bbox']['y2'])
         
-        # import pdb; pdb.set_trace() 
         cutted_img = img[topLeftCorner[1]:botRightCorner[1], topLeftCorner[0]:botRightCorner[0]]
 
         metric_result = get_metric_prediction(metric_model, feature_extractor, device, base, cutted_img)
@@ -91,7 +83,6 @@ def test():
         classes_dict = {0: 'leopard', 1: 'princess', 2: 'tigers', 3: 'other animal'}
 
         bbox.update({'class_name': classes_dict[metric_result]})
-        print(metric_result)
 
     response = {'message' : 'image received. size={}x{}'.format(img.shape[1], img.shape[0]),
                 'image' : {'bbox':all_bboxes}

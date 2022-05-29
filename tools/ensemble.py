@@ -1,6 +1,6 @@
 from tqdm import tqdm
-from utils import load_detection_model
-from mmdet.apis import inference_detector
+from utils import load_mmdet_model
+from sahi.predict import get_sliced_prediction
 import mmcv
 import cv2
 import numpy as np
@@ -16,22 +16,17 @@ def draw_contours(image_array, metadata):
     """
     counter = len(metadata[0])
     for bbox in metadata[0]:
-        # import pdb;pdb.set_trace()
         topLeftCorner = (int(bbox[0]), int(bbox[1]))
         botRightCorner = (int(bbox[2]), int(bbox[3]))
 
-        cv2.rectangle(image_array,\
-                         topLeftCorner,\
-                         botRightCorner,\
-                         (255, 0, 0), 1)
+        center_coords = int((botRightCorner[0] + topLeftCorner[0]) / 2), int((botRightCorner[1] + topLeftCorner[1]) / 2)
 
-        cv2.putText(image_array, f'walrus - threshold',
-                        topLeftCorner,
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (255, 0, 0),
-                        2,
-                        2)
+        cv2.putText(image_array, '*', 
+                            center_coords,
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.3, (255, 0, 0),
+                            1,
+                            1)
 
     return counter
 
@@ -110,11 +105,12 @@ def ensemble(bboxes, probs, weights, iou_thr):
     return final_boxes, final_scores
 
 if __name__ == "__main__":
-    predictor_1 = load_detection_model('source/hackaton_0.652map_config.py', 'source/epoch_20.pth')
-    predictor_2 = load_detection_model('source/hackaton_zaebis_config.py', 'source/epoch_10.pth')
-    image = mmcv.imread('test-public-images/photo_2022-05-24.jpeg')
-    result_1 = inference_detector(predictor_1, image)
-    result_2 = inference_detector(predictor_2, image)
+    hrnet_detector = load_mmdet_model('source/detection_model_rcnn_hr/', 0.85)
+    rcnn_detector = load_mmdet_model('source/detection_model_rcnn/', 0.85)
+    image = mmcv.imread('test-public-images/photo_2022-05-29 05.40.18.jpeg')
+
+    result_1 = get_sliced_prediction(image, hrnet_detector, slice_height = 1024, slice_width = 1024).object_prediction_list
+    result_2 = get_sliced_prediction(image, rcnn_detector, slice_height = 1024, slice_width = 1024).object_prediction_list
     
     final_bb = []
     final_probs = []
@@ -123,18 +119,31 @@ if __name__ == "__main__":
     bboxes_2 = []
     prob_1 = []
     prob_2 = []
-    weights = [2, 1]
-    iou_thr = 0.9
-    skip_box_thr = 0.0001
-    sigma = 0.1
+    weights = [1, 2]
+    iou_thr = 0.95
+    prep_res_1 = []
+    prep_res_2 = []
+    prep_res = []
+    for idx, box in tqdm(enumerate(result_1)):
+        prep_res_1.append(box.bbox.to_voc_bbox())
+        prep_res_1[idx].append(box.score.value)
 
-    for res in tqdm(result_1[0]):
-        bboxes_1.append(res[:-1].tolist())
+    for idx, box in tqdm(enumerate(result_2)):
+        prep_res_2.append(box.bbox.to_voc_bbox())
+        prep_res_2[idx].append(box.score.value)
+
+    # prep_res.append(prep_res_2)
+    # prep_res.append(prep_res_1)
+
+    for res in tqdm(prep_res_1):
+        bboxes_1.append(res[:-1])
         prob_1.append(res[-1])
 
-    for res in tqdm(result_2[0]):
-        bboxes_2.append(res[:-1].tolist())
+    for res in tqdm(prep_res_2):
+        bboxes_2.append(res[:-1])
         prob_2.append(res[-1])
+    print(f'hrnet - {len(bboxes_1)}')
+    print(f'rcnn - {len(bboxes_2)}')
     final_bb.append(bboxes_1)
     final_bb.append(bboxes_2)
     final_probs.append(prob_1)

@@ -1,19 +1,17 @@
-import telegram
-from telegram.ext import CommandHandler
+from utils import process_image, transform_pil_image_to_bytes, get_image_bytes, draw_contours
 from telegram.ext import MessageHandler, Filters
-from telegram import InputMediaPhoto
+from telegram.ext import CommandHandler
 from telegram.ext import Updater
-import cv2
+from bot_commands import start
 import requests
+import telegram
+import cv2
 import os 
-import glob
 
-from bot_commands import start, cut_video
-from utils import process_image, transform_pil_image_to_bytes, get_video, get_image_bytes, draw_contours
 
 
 TOKEN = os.getenv('BOT_TOKEN')
-URL = 'http://10.10.66.129:5010/api/test'
+URL = 'http://10.10.66.54:5010/api/test'
 
 content_type = 'image/jpeg'
 headers = {'content-type': content_type}
@@ -55,14 +53,10 @@ def bot_image_processing(bot, update):
 
 
 
-
-
 start_handler = CommandHandler(['start', 'help'], start)
-cut_video_handler = CommandHandler(['cut_video'], cut_video)
 
 process_image_handler = MessageHandler(Filters.photo | Filters.document, bot_image_processing)
 
 dispatcher.add_handler(start_handler)
-dispatcher.add_handler(cut_video_handler)
 dispatcher.add_handler(process_image_handler)
 updater.start_polling()

@@ -1,16 +1,3 @@
-def cut_video(bot, update):
-    """Команда для бота
-
-    Информирует пользователя о возможности обработки видеофрагмента
-
-    Args:
-        bot: bot - тело нашего бота
-        update: command - параметр для обновления данных в боте
-    """
-
-    text = 'Также я могу сделать распознание по видеофрагменту\n'
-    bot.send_message(chat_id=update.message.chat_id, text=text)
-
 def start(bot, update):
     """Команда для бота
 
