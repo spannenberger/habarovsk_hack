@@ -2,6 +2,7 @@ from .model import load_mmdet_model, load_metric_model, get_metric_prediction
 from .utils import image_augmentations, get_image_from_tg_bot
 from sahi.predict import get_sliced_prediction
 from flask import request, render_template
+from ensemble import start_ensemble
 from tqdm import tqdm
 from app import app
 import numpy as np
@@ -21,7 +22,7 @@ detect_model_rcnn_path = os.getenv('DETECTION_MODEL_RCNN', '')
 detect_model_rcnn_hr_path = os.getenv('DETECTION_MODEL_RCNN_HR', '')
 
 
-# mmdet_rcnn_model = load_mmdet_model(detect_model_rcnn_path, threshold=0.92) # выгрузка детектора
+mmdet_rcnn_model = load_mmdet_model(detect_model_rcnn_path, threshold=0.85) # выгрузка детектора
 mmdet_rcnn_hr_model = load_mmdet_model(detect_model_rcnn_hr_path, threshold=0.85) # выгрузка детектора
 
 metric_model, feature_extractor, device, base = load_metric_model(metric_model_path, embs) # выгрузка metric learning модели
@@ -46,29 +47,25 @@ def test():
     img = image_augmentations(img)
 
     # detection inference using SAHI
-    # detection_result_rcnn = get_sliced_prediction(img, mmdet_rcnn_model, slice_height = 1024, slice_width = 1024).object_prediction_list
+    detection_result_rcnn = get_sliced_prediction(img, mmdet_rcnn_model, slice_height = 1024, slice_width = 1024).object_prediction_list
     detection_result_rcnn_hr = get_sliced_prediction(img, mmdet_rcnn_hr_model, slice_height = 1024, slice_width = 1024).object_prediction_list
+    ensemble_detection_result = start_ensemble(detection_result_rcnn_hr, detection_result_rcnn, weights=[1, 2], iou_thr=0.95)
 
     print('detecting is done')
 
     all_bboxes = []
 
-    for i, response in tqdm(enumerate(detection_result_rcnn_hr)):
+    for i, response in tqdm(enumerate(ensemble_detection_result[0])):
 
-        confidence = response.score.value
-
-        if len(response.bbox.to_voc_bbox()) == 0:
+        if len(response) == 0:
             continue
-
-        response = response.bbox.to_voc_bbox()
 
         all_bboxes.append({'bbox_id': i,
                             'bbox': {
-                                'x1': response[0], 
-                                'y1': response[1],
-                                'x2': response[2], 
-                                'y2': response[3]},
-                            'confidence': int(confidence * 100),
+                                'x1': int(response[0]), 
+                                'y1': int(response[1]),
+                                'x2': int(response[2]), 
+                                'y2': int(response[3])},
                             'class_name': 'walrus'})
     
     for bbox in tqdm(all_bboxes):

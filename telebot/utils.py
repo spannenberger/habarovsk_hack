@@ -68,9 +68,9 @@ def draw_contours(image_array, metadata):
     """
     
     for bbox in tqdm(metadata["bbox"]):
-        class_name = bbox['class_name']
+        # class_name = bbox['class_name']
 
-        confidence = bbox['confidence']
+        # confidence = bbox['confidence']
 
         topLeftCorner = (bbox['bbox']['x1'], bbox['bbox']['y1'])
         botRightCorner = (bbox['bbox']['x2'], bbox['bbox']['y2'])
